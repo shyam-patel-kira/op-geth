@@ -368,6 +368,25 @@ func (s *StateDB) HasSelfDestructed(addr common.Address) bool {
 	return false
 }
 
+// CheckTransactionConditional validates the account preconditions against the statedb.
+func (s *StateDB) CheckTransactionConditional(cond *types.TransactionConditional) error {
+	for addr, acct := range cond.KnownAccounts {
+		if root, isRoot := acct.Root(); isRoot {
+			if root != s.GetStorageRoot(addr) {
+				return fmt.Errorf("failed account storage root constraint")
+			}
+		}
+		if slots, isSlots := acct.Slots(); isSlots {
+			for key, value := range slots {
+				if value != s.GetState(addr, key) {
+					return fmt.Errorf("failed account storage slot constraint")
+				}
+			}
+		}
+	}
+	return nil
+}
+
 /*
  * SETTERS
  */
