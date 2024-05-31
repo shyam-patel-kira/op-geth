@@ -38,6 +38,7 @@ import (
 	"github.com/ethereum/go-ethereum/eth/tracers"
 	"github.com/ethereum/go-ethereum/event"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/metrics"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/trie"
 	"github.com/holiman/uint256"
@@ -78,10 +79,14 @@ const (
 )
 
 var (
+	errTxConditionalInvalid = errors.New("transaction conditional failed")
+
 	errBlockInterruptedByNewHead  = errors.New("new head arrived while building block")
 	errBlockInterruptedByRecommit = errors.New("recommit interrupt while building block")
 	errBlockInterruptedByTimeout  = errors.New("timeout while building block")
 	errBlockInterruptedByResolve  = errors.New("payload resolution while building block")
+
+	txConditionalRejectedCounter = metrics.NewRegisteredCounter("miner/transactionConditional/rejected", nil)
 )
 
 // environment is the worker's current environment and holds all
@@ -799,6 +804,17 @@ func (w *worker) commitTransaction(env *environment, tx *types.Transaction) ([]*
 	if tx.Type() == types.BlobTxType {
 		return w.commitBlobTransaction(env, tx)
 	}
+
+	// If a conditional is set, check against the state prior to applying
+	if conditional := tx.Conditional(); conditional != nil {
+		if err := env.header.CheckTransactionConditional(conditional); err != nil {
+			return nil, fmt.Errorf("failed tx conditional: %w", errTxConditionalInvalid)
+		}
+		if err := env.state.CheckTransactionConditional(conditional); err != nil {
+			return nil, fmt.Errorf("failed tx conditional: %w", errTxConditionalInvalid)
+		}
+	}
+
 	receipt, err := w.applyTransaction(env, tx)
 	if err != nil {
 		return nil, err
@@ -917,21 +933,6 @@ func (w *worker) commitTransactions(env *environment, plainTxs, blobTxs *transac
 		// during transaction acceptance is the transaction pool.
 		from, _ := types.Sender(env.signer, tx)
 
-		// If a conditional is set, check against the current state. Conditional are only sent on normal
-		// transactions so it will be nil for blob transactions
-		if conditional := tx.Conditional(); conditional != nil {
-			if err := env.header.CheckTransactionConditional(conditional); err != nil {
-				log.Trace("Skipping transaction with failed conditional", "sender", from, "hash", tx.Hash())
-				txs.Pop()
-				continue
-			}
-			if err := env.state.CheckTransactionConditional(conditional); err != nil {
-				log.Trace("Skipping transaction with failed conditional", "sender", from, "hash", tx.Hash())
-				txs.Pop()
-				continue
-			}
-		}
-
 		// Check whether the tx is replay protected. If we're not in the EIP155 hf
 		// phase, start ignoring the sender until we do.
 		if tx.Protected() && !w.chainConfig.IsEIP155(env.header.Number) {
@@ -948,6 +949,11 @@ func (w *worker) commitTransactions(env *environment, plainTxs, blobTxs *transac
 			// New head notification data race between the transaction pool and miner, shift
 			log.Trace("Skipping transaction with low nonce", "hash", ltx.Hash, "sender", from, "nonce", tx.Nonce())
 			txs.Shift()
+
+		case errors.Is(err, errTxConditionalInvalid):
+			txConditionalRejectedCounter.Inc(1)
+			log.Trace("Skipping transaction with failed conditional", "sender", from, "hash", tx.Hash(), "err", err)
+			txs.Pop()
 
 		case errors.Is(err, nil):
 			// Everything ok, collect the logs and shift in the next transaction from the same account

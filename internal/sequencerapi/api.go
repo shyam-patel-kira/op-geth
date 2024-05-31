@@ -72,7 +72,6 @@ func (s *ethApi) SendRawTransactionConditional(ctx context.Context, txBytes hexu
 	}
 
 	sendRawTxConditionalAcceptedCounter.Inc(1)
-
 	tx.SetConditional(&cond)
 	return ethapi.SubmitTransaction(ctx, s.b, tx)
 }
