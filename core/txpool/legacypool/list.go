@@ -18,6 +18,8 @@ package legacypool
 
 import (
 	"container/heap"
+	"errors"
+	"fmt"
 	"math"
 	"math/big"
 	"sort"
@@ -26,6 +28,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/txpool"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/holiman/uint256"
@@ -408,6 +411,31 @@ func (l *list) Filter(costLimit *uint256.Int, gasLimit uint64) (types.Transactio
 	l.subTotalCost(invalids)
 	l.txs.reheap()
 	return removed, invalids
+}
+
+// FilterTransactionConditionals removes transactions with an attached conditional against the provided state. Every
+// removed transaction is returned for post-removal maintanance. It is more costly than the operations in `Filter`
+// so it is split into its own method and is called less often. The error returned contains the contextual info
+// about the invalidated conditional for each transaction.
+func (l *list) FilterTransactionConditionals(statedb *state.StateDB) (types.Transactions, error) {
+	var errs []error
+	removed := l.txs.filter(func(tx *types.Transaction) bool {
+		if conditional := tx.Conditional(); conditional != nil {
+			if err := statedb.CheckTransactionConditional(conditional); err != nil {
+				hash := tx.Hash()
+				errs = append(errs, fmt.Errorf("%s is a stale transaction with invalidated conditional: %w", hash, err))
+				return true
+			}
+		}
+		return false
+	})
+
+	if len(removed) == 0 {
+		return nil, nil
+	}
+
+	l.txs.reheap()
+	return removed, errors.Join(errs...)
 }
 
 // Cap places a hard limit on the number of items, returning all transactions

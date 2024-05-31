@@ -1739,9 +1739,20 @@ func (pool *LegacyPool) demoteUnexecutables() {
 			// Internal shuffle shouldn't touch the lookup set.
 			pool.enqueueTx(hash, tx, false, false)
 		}
-		pendingGauge.Dec(int64(len(olds) + len(drops) + len(invalids)))
+
+		conditionalDrops, err := list.FilterTransactionConditionals(pool.currentState)
+		if err != nil {
+			log.Trace("%d stale transactions dropped with failed conditional: %w", len(conditionalDrops), err)
+		}
+		for _, tx := range conditionalDrops {
+			hash := tx.Hash()
+			pool.all.Remove(tx.Hash())
+			log.Trace("Removed stale transaction with invalidated conditional", "hash", hash)
+		}
+
+		pendingGauge.Dec(int64(len(olds) + len(drops) + len(invalids) + len(conditionalDrops)))
 		if pool.locals.contains(addr) {
-			localGauge.Dec(int64(len(olds) + len(drops) + len(invalids)))
+			localGauge.Dec(int64(len(olds) + len(drops) + len(invalids) + len(conditionalDrops)))
 		}
 		// If there's a gap in front, alert (should never happen) and postpone all transactions
 		if list.Len() > 0 && list.txs.Get(nonce) == nil {
