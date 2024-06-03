@@ -24,20 +24,18 @@ var (
 	sendRawTxConditionalAcceptedCounter = metrics.NewRegisteredCounter("sequencer/sendRawTransactionConditional/accepted", nil)
 )
 
-type ethApi struct {
+type sendRawTxCond struct {
 	b ethapi.Backend
 }
 
-func GetAPIs(b ethapi.Backend) []rpc.API {
-	return []rpc.API{
-		{
-			Namespace: "eth",
-			Service:   &ethApi{b},
-		},
+func GetSendRawTxConditionalAPI(b ethapi.Backend) rpc.API {
+	return rpc.API{
+		Namespace: "eth",
+		Service:   &sendRawTxCond{b},
 	}
 }
 
-func (s *ethApi) SendRawTransactionConditional(ctx context.Context, txBytes hexutil.Bytes, cond types.TransactionConditional) (common.Hash, error) {
+func (s *sendRawTxCond) SendRawTransactionConditional(ctx context.Context, txBytes hexutil.Bytes, cond types.TransactionConditional) (common.Hash, error) {
 	sendRawTxConditionalRequestsCounter.Inc(1)
 
 	cost := cond.Cost()
