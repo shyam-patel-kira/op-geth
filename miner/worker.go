@@ -87,7 +87,7 @@ var (
 	errBlockInterruptedByResolve  = errors.New("payload resolution while building block")
 
 	txConditionalRejectedCounter = metrics.NewRegisteredCounter("miner/transactionConditional/rejected", nil)
-	txConditionalMinedTimer = metrics.NewRegisteredTimer("miner/transactionConditional/elapsedtime", nil)
+	txConditionalMinedTimer      = metrics.NewRegisteredTimer("miner/transactionConditional/elapsedtime", nil)
 )
 
 // environment is the worker's current environment and holds all
@@ -808,7 +808,7 @@ func (w *worker) commitTransaction(env *environment, tx *types.Transaction) ([]*
 
 	// If a conditional is set, check prior to applying
 	if conditional := tx.Conditional(); conditional != nil {
-		txConditionalMinedTimer.UpdateSince(conditional.SubmissionTime)
+		txConditionalMinedTimer.UpdateSince(conditional.SubmissionTime())
 
 		if err := env.header.CheckTransactionConditional(conditional); err != nil {
 			return nil, fmt.Errorf("failed tx conditional: %w", errTxConditionalInvalid)

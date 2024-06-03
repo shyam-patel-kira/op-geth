@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 )
 
 // KnownAccounts represents a set of knownAccounts
@@ -85,6 +86,8 @@ func (ka *KnownAccount) Slots() (map[common.Hash]common.Hash, bool) {
 	return ka.StorageSlots, true
 }
 
+//go:generate go run github.com/fjl/gencodec -type TransactionConditional -field-override transactionConditionalMarshalling -out gen_transaction_conditional_json.go
+
 // TransactionConditional represents the preconditions that determine
 // the inclusion of the transaction, enforced out-of-protocol by the
 // sequencer.
@@ -100,7 +103,15 @@ type TransactionConditional struct {
 	TimestampMax   *uint64  `json:"timestampMax,omitempty"`
 
 	// Tracked internally for metrics purposes
-	SubmissionTime time.Time `json:"-"`
+	submissionTime time.Time `json:"-"`
+}
+
+// field type overrides for gencodec
+type transactionConditionalMarshalling struct {
+	BlockNumberMax *hexutil.Big
+	BlockNumberMin *hexutil.Big
+	TimestampMin   *hexutil.Uint64
+	TimestampMax   *hexutil.Uint64
 }
 
 // Cost computes the cost of validating the TxOptions. It will return
@@ -146,4 +157,12 @@ func (opts *TransactionConditional) Copy() TransactionConditional {
 		*cpy.TimestampMax = *opts.TimestampMax
 	}
 	return cpy
+}
+
+func (opts *TransactionConditional) SubmissionTime() time.Time {
+	return opts.submissionTime
+}
+
+func (opts *TransactionConditional) SetSubmissionTime(t time.Time) {
+	opts.submissionTime = t
 }

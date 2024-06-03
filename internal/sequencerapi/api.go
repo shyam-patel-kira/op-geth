@@ -70,9 +70,10 @@ func (s *sendRawTxCond) SendRawTransactionConditional(ctx context.Context, txByt
 		return common.Hash{}, err
 	}
 
-	cond.SubmissionTime = time.Now()
+	// Tag the transaction with the conditional and current time
+	cond.SetSubmissionTime(time.Now())
 	tx.SetConditional(&cond)
-
 	sendRawTxConditionalAcceptedCounter.Inc(1)
+
 	return ethapi.SubmitTransaction(ctx, s.b, tx)
 }
