@@ -3,6 +3,7 @@ package types
 import (
 	"encoding/json"
 	"math/big"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 )
@@ -88,17 +89,18 @@ func (ka *KnownAccount) Slots() (map[common.Hash]common.Hash, bool) {
 // the inclusion of the transaction, enforced out-of-protocol by the
 // sequencer.
 type TransactionConditional struct {
-	// KnownAccounts represents a user's preference of a known prestate before
-	// their transaction is included.
+	// KnownAccounts represents a user's preference of a known
+	// prestate before their transaction is included.
 	KnownAccounts KnownAccounts `json:"knownAccounts"`
-	// BlockNumberMin
+
+	// Header state conditionals
 	BlockNumberMin *big.Int `json:"blockNumberMin,omitempty"`
-	// BlockNumberMax
 	BlockNumberMax *big.Int `json:"blockNumberMax,omitempty"`
-	// TimestampMin
-	TimestampMin *uint64 `json:"timestampMin,omitempty"`
-	// TimestampMax
-	TimestampMax *uint64 `json:"timestampMax,omitempty"`
+	TimestampMin   *uint64  `json:"timestampMin,omitempty"`
+	TimestampMax   *uint64  `json:"timestampMax,omitempty"`
+
+	// Tracked internally for metrics purposes
+	SubmissionTime time.Time `json:"-"`
 }
 
 // Cost computes the cost of validating the TxOptions. It will return

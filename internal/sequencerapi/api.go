@@ -3,6 +3,7 @@ package sequencerapi
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -49,10 +50,10 @@ func (s *ethApi) SendRawTransactionConditional(ctx context.Context, txBytes hexu
 	if err != nil {
 		return common.Hash{}, err
 	}
-	if header.CheckTransactionConditional(&cond); err != nil {
+	if err := header.CheckTransactionConditional(&cond); err != nil {
 		return common.Hash{}, fmt.Errorf("failed header check: %w", err)
 	}
-	if state.CheckTransactionConditional(&cond); err != nil {
+	if err := state.CheckTransactionConditional(&cond); err != nil {
 		return common.Hash{}, fmt.Errorf("failed state check: %w", err)
 	}
 
@@ -62,7 +63,7 @@ func (s *ethApi) SendRawTransactionConditional(ctx context.Context, txBytes hexu
 	if err != nil {
 		return common.Hash{}, err
 	}
-	if parentState.CheckTransactionConditional(&cond); err != nil {
+	if err := parentState.CheckTransactionConditional(&cond); err != nil {
 		return common.Hash{}, fmt.Errorf("failed parent header state check: %w", err)
 	}
 
@@ -71,7 +72,9 @@ func (s *ethApi) SendRawTransactionConditional(ctx context.Context, txBytes hexu
 		return common.Hash{}, err
 	}
 
-	sendRawTxConditionalAcceptedCounter.Inc(1)
+	cond.SubmissionTime = time.Now()
 	tx.SetConditional(&cond)
+
+	sendRawTxConditionalAcceptedCounter.Inc(1)
 	return ethapi.SubmitTransaction(ctx, s.b, tx)
 }

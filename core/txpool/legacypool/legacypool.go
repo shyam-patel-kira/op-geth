@@ -101,6 +101,9 @@ var (
 	slotsGauge   = metrics.NewRegisteredGauge("txpool/slots", nil)
 
 	reheapTimer = metrics.NewRegisteredTimer("txpool/reheap", nil)
+
+	txConditionalDemotedCounter = metrics.NewRegisteredCounter("txpool/transactionConditional/demoted", nil)
+	txConditionalDemotedTimer   = metrics.NewRegisteredTimer("txpool/transactionConditional/demoted/elapsedtime", nil)
 )
 
 // BlockChain defines the minimal set of methods needed to back a tx pool with
@@ -1744,7 +1747,13 @@ func (pool *LegacyPool) demoteUnexecutables() {
 		if err != nil {
 			log.Trace("%d stale transactions dropped with failed conditional: %w", len(conditionalDrops), err)
 		}
+
+		txConditionalDemotedCounter.Inc(int64(len(conditionalDrops)))
 		for _, tx := range conditionalDrops {
+			if conditional := tx.Conditional(); conditional != nil { // not nil but just in case
+				txConditionalDemotedTimer.UpdateSince(conditional.SubmissionTime)
+			}
+
 			hash := tx.Hash()
 			pool.all.Remove(tx.Hash())
 			log.Trace("Removed stale transaction with invalidated conditional", "hash", hash)
