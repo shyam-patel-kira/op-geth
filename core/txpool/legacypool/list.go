@@ -414,7 +414,7 @@ func (l *list) Filter(costLimit *uint256.Int, gasLimit uint64) (types.Transactio
 }
 
 // FilterTransactionConditionals removes transactions with an attached conditional against the provided state. Every
-// removed transaction is returned for post-removal maintanance. It is more costly than the operations in `Filter`
+// removed transaction is returned for post-removal maintenance. It is more costly than the operations in `Filter`
 // so it is split into its own method and is called less often. The error returned contains the contextual info
 // about the invalidated conditional for each transaction.
 func (l *list) FilterTransactionConditionals(statedb *state.StateDB) (types.Transactions, error) {
