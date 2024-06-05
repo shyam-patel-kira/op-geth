@@ -422,8 +422,7 @@ func (l *list) FilterTransactionConditionals(statedb *state.StateDB) (types.Tran
 	removed := l.txs.filter(func(tx *types.Transaction) bool {
 		if conditional := tx.Conditional(); conditional != nil {
 			if err := statedb.CheckTransactionConditional(conditional); err != nil {
-				hash := tx.Hash()
-				errs = append(errs, fmt.Errorf("%s is a stale transaction with invalidated conditional: %w", hash, err))
+				errs = append(errs, fmt.Errorf("%s is a transaction with invalidated conditional: %w", tx.Hash(), err))
 				return true
 			}
 		}

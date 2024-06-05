@@ -22,6 +22,8 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/rawdb"
+	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/holiman/uint256"
@@ -65,6 +67,67 @@ func TestListAddVeryExpensive(t *testing.T) {
 		tx, _ := types.SignTx(types.NewTransaction(uint64(i), common.Address{}, value, gaslimit, gasprice, nil), types.HomesteadSigner{}, key)
 		t.Logf("cost: %x bitlen: %d\n", tx.Cost(), tx.Cost().BitLen())
 		list.Add(tx, DefaultConfig.PriceBump, nil)
+	}
+}
+
+// TestFilterTransactionConditionals tests filtering by invalid TransactionConditionals.
+func TestFilterTransactionConditional(t *testing.T) {
+	// Create an in memory state db to test against.
+	state, _ := state.New(types.EmptyRootHash, state.NewDatabase(rawdb.NewMemoryDatabase()), nil)
+	state.IntermediateRoot(false)
+
+	// Create a private key to sign transactions.
+	key, _ := crypto.GenerateKey()
+
+	// Create a list.
+	list := newList(true)
+
+	// Create a transaction with no defined conditional and add to the list.
+	tx1 := transaction(0, 1000, key)
+	list.Add(tx1, DefaultConfig.PriceBump, nil)
+
+	// There should be no drops at this point, no conditional txs
+	drops, err := list.FilterTransactionConditionals(state)
+	if err != nil {
+		t.Fatalf("error filtering by TransactionConditionals: %s", err)
+	}
+	if count := len(drops); count != 0 {
+		t.Fatalf("got %d filtered by TransactionConditionals when there should not be any", count)
+	}
+
+	// Create another transaction with a conditional
+	tx2 := transaction(1, 1000, key)
+	tx2.SetConditional(&types.TransactionConditional{
+		KnownAccounts: map[common.Address]types.KnownAccount{{19: 1}: {StorageRoot: &types.EmptyRootHash}},
+	})
+	list.Add(tx2, DefaultConfig.PriceBump, nil)
+
+	// There should still be no drops as no state has been modified.
+	drops, err = list.FilterTransactionConditionals(state)
+	if err != nil {
+		t.Fatalf("error filtering by TransactionConditionals: %s", err)
+	}
+	if count := len(drops); count != 0 {
+		t.Fatalf("got %d filtered by TransactionConditionals when there should not be any", count)
+	}
+
+	// Set state that conflicts with tx2's conditional
+	state.SetState(common.Address{19: 1}, common.Hash{}, common.Hash{31: 1})
+	state.IntermediateRoot(false)
+
+	// tx2 should be the single transaction filtered out
+	drops, err = list.FilterTransactionConditionals(state)
+	if err == nil {
+		t.Fatalf("expected tx filtered by TransactionConditionals")
+	}
+	if count := len(drops); count != 1 {
+		t.Fatalf("got %d filtered by TransactionConditionals when there should be a single one", count)
+	}
+	if drops[0] != tx2 {
+		t.Fatalf("Got %x, expected %x", drops[0].Hash(), tx2.Hash())
+	}
+	if list.Len() != 1 {
+		t.Fatal("expected only 1 transaction remaining in the list")
 	}
 }
 

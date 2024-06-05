@@ -372,14 +372,20 @@ func (s *StateDB) HasSelfDestructed(addr common.Address) bool {
 func (s *StateDB) CheckTransactionConditional(cond *types.TransactionConditional) error {
 	for addr, acct := range cond.KnownAccounts {
 		if root, isRoot := acct.Root(); isRoot {
-			if root != s.GetStorageRoot(addr) {
-				return fmt.Errorf("failed account storage root constraint")
+			storageRoot := s.GetStorageRoot(addr)
+			if storageRoot == (common.Hash{}) { // if the root is not found, replace with the empty root hash
+				storageRoot = types.EmptyRootHash
+			}
+
+			if root != storageRoot {
+				return fmt.Errorf("failed account storage root constraint. Got %s, Expected %s", storageRoot, root)
 			}
 		}
 		if slots, isSlots := acct.Slots(); isSlots {
-			for key, value := range slots {
-				if value != s.GetState(addr, key) {
-					return fmt.Errorf("failed account storage slot constraint")
+			for key, state := range slots {
+				accState := s.GetState(addr, key)
+				if state != accState {
+					return fmt.Errorf("failed account storage slot key %s constraint. Got %s, Expected %s", key, accState, state)
 				}
 			}
 		}

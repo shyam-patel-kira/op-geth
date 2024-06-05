@@ -77,8 +77,8 @@ func (ka *KnownAccount) Root() (common.Hash, bool) {
 }
 
 // Slots will return the storage slots and true when the user prefers
-// execution against an account's particular storage slots, otherwise
-// it will return false.
+// execution against an account's particular storage slots, StorageRoot == nil,
+// otherwise it will return false.
 func (ka *KnownAccount) Slots() (map[common.Hash]common.Hash, bool) {
 	if ka.StorageRoot != nil {
 		return ka.StorageSlots, false
