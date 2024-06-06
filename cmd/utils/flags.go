@@ -908,7 +908,7 @@ var (
 		Category: flags.RollupCategory,
 		Value:    true,
 	}
-	RollupSequencerEnableTxConditional = &cli.BoolFlag{
+	RollupSequencerEnableTxConditionalFlag = &cli.BoolFlag{
 		Name:     "rollup.sequencerenabletxconditional",
 		Usage:    "Serve the eth_sendRawTransactionConditional endpoint and apply the conditional constraints on mempool inclusion & block building",
 		Category: flags.RollupCategory,
@@ -1873,9 +1873,8 @@ func SetEthConfig(ctx *cli.Context, stack *node.Node, cfg *ethconfig.Config) {
 	cfg.RollupHaltOnIncompatibleProtocolVersion = ctx.String(RollupHaltOnIncompatibleProtocolVersionFlag.Name)
 	cfg.ApplySuperchainUpgrades = ctx.Bool(RollupSuperchainUpgradesFlag.Name)
 
-	// Only configure the sequencer tx conditional flag if we're running in mining mode
-	if ctx.IsSet(RollupSequencerEnableTxConditional.Name) && ctx.IsSet(MiningEnabledFlag.Name) {
-		cfg.RollupSequencerEnableTxConditional = ctx.Bool(RollupSequencerEnableTxConditional.Name)
+	if ctx.IsSet(RollupSequencerEnableTxConditionalFlag.Name) {
+		cfg.RollupSequencerEnableTxConditional = ctx.Bool(RollupSequencerEnableTxConditionalFlag.Name)
 	}
 
 	// Override any default configs for hard coded networks.
