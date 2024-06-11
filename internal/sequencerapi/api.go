@@ -44,6 +44,11 @@ func (s *sendRawTxCond) SendRawTransactionConditional(ctx context.Context, txByt
 		return common.Hash{}, fmt.Errorf("conditional cost, %d, exceeded 1000", cost)
 	}
 
+	// Perform sanity validation prior to state lookups
+	if err := cond.Validate(); err != nil {
+		return common.Hash{}, fmt.Errorf("failed conditional validation: %s", err)
+	}
+
 	state, header, err := s.b.StateAndHeaderByNumber(context.Background(), rpc.LatestBlockNumber)
 	if err != nil {
 		return common.Hash{}, err

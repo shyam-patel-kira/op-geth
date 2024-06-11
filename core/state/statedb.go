@@ -376,7 +376,6 @@ func (s *StateDB) CheckTransactionConditional(cond *types.TransactionConditional
 			if storageRoot == (common.Hash{}) { // if the root is not found, replace with the empty root hash
 				storageRoot = types.EmptyRootHash
 			}
-
 			if root != storageRoot {
 				return fmt.Errorf("failed account storage root constraint. Got %s, Expected %s", storageRoot, root)
 			}

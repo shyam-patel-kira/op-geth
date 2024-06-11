@@ -5,8 +5,10 @@ import (
 	"math/big"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/rlp"
 )
 
 func TestTransactionConditionalCost(t *testing.T) {
@@ -80,7 +82,57 @@ func TestTransactionConditionalCost(t *testing.T) {
 	}
 }
 
-func TestTransactionConditionalUnmarshalJSON(t *testing.T) {
+func TestTransactionConditionalValidation(t *testing.T) {
+	uint64Ptr := func(num uint64) *uint64 {
+		return &num
+	}
+
+	tests := []struct {
+		name     string
+		cond     TransactionConditional
+		mustFail bool
+	}{
+		{
+			name:     "empty conditional",
+			cond:     TransactionConditional{},
+			mustFail: false,
+		},
+		{
+			name:     "equal block constraint",
+			cond:     TransactionConditional{BlockNumberMin: big.NewInt(1), BlockNumberMax: big.NewInt(1)},
+			mustFail: false,
+		},
+		{
+			name:     "block min greater than max",
+			cond:     TransactionConditional{BlockNumberMin: big.NewInt(2), BlockNumberMax: big.NewInt(1)},
+			mustFail: true,
+		},
+		{
+			name:     "equal timestamp constraint",
+			cond:     TransactionConditional{TimestampMin: uint64Ptr(1), TimestampMax: uint64Ptr(1)},
+			mustFail: false,
+		},
+		{
+			name:     "timestamp min greater than max",
+			cond:     TransactionConditional{TimestampMin: uint64Ptr(2), TimestampMax: uint64Ptr(1)},
+			mustFail: true,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			err := test.cond.Validate()
+			if test.mustFail && err == nil {
+				t.Errorf("Test %s should fail", test.name)
+			}
+			if !test.mustFail && err != nil {
+				t.Errorf("Test %s should pass but got err: %v", test.name, err)
+			}
+		})
+	}
+}
+
+func TestTransactionConditionalSerDeser(t *testing.T) {
 	uint64Ptr := func(num uint64) *uint64 {
 		return &num
 	}
@@ -171,22 +223,70 @@ func TestTransactionConditionalUnmarshalJSON(t *testing.T) {
 				TimestampMax: uint64Ptr(uint64(0xffffff)),
 			},
 		},
+		{
+			name:     "SubmissionTime",
+			input:    `{"submissionTime": 1234}`,
+			mustFail: true,
+			expected: TransactionConditional{
+				KnownAccounts: nil,
+			},
+		},
+		{
+			name:     "UnknownField",
+			input:    `{"foobarbaz": 1234}`,
+			mustFail: true,
+			expected: TransactionConditional{
+				KnownAccounts: nil,
+			},
+		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			var opts TransactionConditional
-			err := json.Unmarshal([]byte(test.input), &opts)
+			var cond TransactionConditional
+			err := json.Unmarshal([]byte(test.input), &cond)
 			if test.mustFail && err == nil {
 				t.Errorf("Test %s should fail", test.name)
 			}
 			if !test.mustFail && err != nil {
 				t.Errorf("Test %s should pass but got err: %v", test.name, err)
 			}
+			if !reflect.DeepEqual(cond, test.expected) {
+				t.Errorf("Test %s got unexpected value, want %#v, got %#v", test.name, test.expected, cond)
+			}
 
-			if !reflect.DeepEqual(opts, test.expected) {
-				t.Errorf("Test %s got unexpected value, want %#v, got %#v", test.name, test.expected, opts)
+			// Also rlp encode & decode.
+			if !test.mustFail {
+				rlpBytes, err := rlp.EncodeToBytes(cond)
+				if err != nil {
+					t.Errorf("Test %s failed to rlp encode: %s", test.name, err)
+				}
+
+				var condCpy TransactionConditional
+				if err := rlp.DecodeBytes(rlpBytes, &condCpy); err != nil {
+					t.Errorf("Test %s failed to decode rlp bytes: %s", test.name, err)
+				}
+				if !reflect.DeepEqual(cond, test.expected) {
+					t.Errorf("Test %s got unexpected value, want %#v, got %#v", test.name, test.expected, cond)
+				}
 			}
 		})
 	}
+
+	t.Run("SubmissionTime RLP ser/deser", func(t *testing.T) {
+		cond := TransactionConditional{SubmissionTime: time.Now()}
+		rlpBytes, err := rlp.EncodeToBytes(cond)
+		if err != nil {
+			t.Errorf("Test with Submissiontime failed to rlp encode: %s", err)
+		}
+
+		var condCpy TransactionConditional
+		if err := rlp.DecodeBytes(rlpBytes, &condCpy); err != nil {
+			t.Errorf("Test with SubmissionTime failed to decode rlp bytes: %s", err)
+		}
+
+		if condCpy.SubmissionTime.Unix() != cond.SubmissionTime.Unix() {
+			t.Errorf("SubmissionTime mismatch. Got %d, Expected: %d", condCpy.SubmissionTime.Unix(), cond.SubmissionTime.Unix())
+		}
+	})
 }

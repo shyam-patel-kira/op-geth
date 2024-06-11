@@ -1751,7 +1751,7 @@ func (pool *LegacyPool) demoteUnexecutables() {
 		txConditionalDemotedCounter.Inc(int64(len(conditionalDrops)))
 		for _, tx := range conditionalDrops {
 			if conditional := tx.Conditional(); conditional != nil { // not nil but just in case
-				txConditionalDemotedTimer.UpdateSince(conditional.SubmissionTime())
+				txConditionalDemotedTimer.UpdateSince(conditional.SubmissionTime)
 			}
 
 			hash := tx.Hash()
