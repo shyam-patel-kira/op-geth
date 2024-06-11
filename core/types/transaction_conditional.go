@@ -12,7 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/rlp"
 )
 
-// KnownAccounts represents a set of knownAccounts
+// KnownAccounts represents a set of KnownAccounts
 type KnownAccounts map[common.Address]KnownAccount
 
 // EncodeRLP will encode the known account into rlp bytes
@@ -88,7 +88,6 @@ func (ka KnownAccount) EncodeRLP(w io.Writer) error {
 	if ka.StorageRoot != nil {
 		return rlp.Encode(w, ka.StorageRoot)
 	}
-
 	type slotKV struct {
 		Key   common.Hash
 		Value common.Hash
@@ -103,12 +102,10 @@ func (ka KnownAccount) EncodeRLP(w io.Writer) error {
 // DecodeRLP will decode the KnownAccount from rlp bytes
 func (ka *KnownAccount) DecodeRLP(s *rlp.Stream) error {
 	ka.StorageSlots = make(map[common.Hash]common.Hash)
-
 	type slotKV struct {
 		Key   common.Hash
 		Value common.Hash
 	}
-
 	_, size, err := s.Kind()
 	switch {
 	case err != nil:
@@ -180,7 +177,7 @@ type transactionConditionalMarshalling struct {
 	TimestampMax   *hexutil.Uint64
 }
 
-// EncodeRLP will encode the TransactionConditional into rlp bytes
+// EncodeRLP will encode the TransactionConditional into RLP bytes
 func (cond TransactionConditional) EncodeRLP(w io.Writer) error {
 	type TransactionConditional struct {
 		KnownAccounts  KnownAccounts
@@ -200,7 +197,7 @@ func (cond TransactionConditional) EncodeRLP(w io.Writer) error {
 	return rlp.Encode(w, enc)
 }
 
-// DecodeRLP will decode the TransactionConditional from rlp bytes
+// DecodeRLP will decode the TransactionConditional from RLP bytes
 func (cond *TransactionConditional) DecodeRLP(s *rlp.Stream) error {
 	type TransactionConditional struct {
 		KnownAccounts  KnownAccounts
@@ -223,19 +220,18 @@ func (cond *TransactionConditional) DecodeRLP(s *rlp.Stream) error {
 	return nil
 }
 
-// Validate will perform sanity checks on the specified options
+// Validate will perform sanity checks on the specified parameters
 func (cond *TransactionConditional) Validate() error {
 	if cond.BlockNumberMin != nil && cond.BlockNumberMax != nil && cond.BlockNumberMin.Cmp(cond.BlockNumberMax) > 0 {
 		return fmt.Errorf("block number minimum constraint must be less than the max")
 	}
 	if cond.TimestampMin != nil && cond.TimestampMax != nil && *cond.TimestampMin > *cond.TimestampMax {
-		return fmt.Errorf("timestamp constraint must be less than the max")
+		return fmt.Errorf("timestamp minimum constraint must be less than the max")
 	}
 	return nil
 }
 
-// Cost computes the cost of validating the TxOptions. It will return
-// the number of storage lookups required by KnownAccounts.
+// Cost computes the cost of validating the TxOptions. It will return the number of storage lookups required
 func (opts *TransactionConditional) Cost() int {
 	cost := 0
 	for _, account := range opts.KnownAccounts {
