@@ -343,7 +343,7 @@ func assertTxs(t *testing.T, txs1, txs2 []*types.Transaction) {
 		t.Fatalf("different number of txs unmarshalled")
 	}
 	for i := range txs1 {
-		if txs1[i].Hash() != txs1[i].Hash() {
+		if txs1[i].Hash() != txs2[i].Hash() {
 			t.Fatalf("mismatch in unmarshalled tx. Got %s, Expected: %s", txs1[i].Hash(), txs2[i].Hash())
 		}
 	}
